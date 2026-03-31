@@ -1,0 +1,81 @@
+class CoverageExtension {
+    boolean enabled = true
+    List<String> excludePackages = []
+    List<String> excludeClasses = []
+}
+
+project.extensions.create('coverage', CoverageExtension)
+
+apply plugin: 'jacoco'
+
+jacoco.toolVersion = jacocoVersion
+
+// 存储 coverage 扩展的引用
+def coverageExt = project.extensions.findByName('coverage')
+// 存储 buildDir 路径
+def buildDirPath = project.buildDir
+// 存储 jacocoAnt 类路径
+def jacocoAntClasspath = project.configurations.jacocoAnt.asPath
+// 存储项目名称
+def projectName = project.name
+
+task coverageCheck(dependsOn: test) {
+    doLast {
+        if (!coverageExt?.enabled) {
+            return
+        }
+
+        // 使用 Java File 类替代 Gradle file 方法
+        def testClassesDir = new File("$buildDirPath/classes/java/test")
+        if (!testClassesDir.exists()) {
+            return
+        }
+
+        ant.taskdef(name: 'jacocoReport',
+                classname: 'org.jacoco.ant.ReportTask',
+                classpath: jacocoAntClasspath)
+
+        ant.jacocoReport {
+            executiondata {
+                fileset(dir: "$buildDirPath/jacoco") {
+                    include name: 'test.exec'
+                }
+            }
+
+            structure(name: projectName) {
+                classfiles {
+                    fileset(dir: "$buildDirPath/classes/java/main") {
+                        if (coverageExt?.excludePackages) {
+                            coverageExt.excludePackages.each() {
+                                exclude name: "${it.replaceAll('\\.', '/') + '/*'}"
+                            }
+                        }
+                        if (coverageExt?.excludeClasses) {
+                            coverageExt.excludeClasses.each() {
+                                exclude name: "${it.replaceAll('\\.', '/') + '.class'}"
+                            }
+                        }
+                    }
+                }
+                sourcefiles {
+                    fileset dir: "src/main/java"
+                }
+            }
+
+            html(destdir: "$buildDirPath/reports/jacoco")
+
+            check(failOnViolation: true) {
+                rule(element: 'PACKAGE') {
+                    limit(counter: "LINE", value: "COVEREDRATIO", minimum: "1.0")
+                    limit(counter: "CLASS", value: "COVEREDRATIO", minimum: "1.0")
+                    limit(counter: "INSTRUCTION", value: "COVEREDRATIO", minimum: "1.0")
+                    limit(counter: "BRANCH", value: "COVEREDRATIO", minimum: "1.0")
+                    limit(counter: "COMPLEXITY", value: "COVEREDRATIO", minimum: "1.0")
+                    limit(counter: "METHOD", value: "COVEREDRATIO", minimum: "1.0")
+                }
+            }
+        }
+    }
+}
+
+check.dependsOn "coverageCheck"
