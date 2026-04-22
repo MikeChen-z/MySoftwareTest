@@ -1,0 +1,59 @@
+plugins {
+    id 'application'
+    id 'jacoco'
+    id "info.solidsoft.pitest" version "1.15.0"
+}
+
+dependencies {
+    testImplementation libs.junit.jupiter
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // 添加JUnit 4依赖，PITest需要
+    testImplementation 'junit:junit:4.13.2'
+    implementation libs.guava
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+// 指定UTF-8编码
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+tasks.withType(Test) {
+    systemProperty "file.encoding", "UTF-8"
+}
+
+application {
+    mainClass = 'com.example5.LinkedListRemove'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.named('jacocoTestReport') {
+    dependsOn(tasks.test)
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
+}
+
+// 配置PITest
+pitest {
+    targetClasses = ['com.example5.LinkedListRemove']
+    targetTests = ['com.example5.LinkedListRemoveTest', 'com.example5.RemoveObjectBasePathTest']
+    outputFormats = ['HTML']
+    jvmArgs = [
+        '-Dfile.encoding=UTF-8',
+        '--add-opens=java.base/java.util=ALL-UNNAMED',
+        '--add-opens=java.base/java.lang=ALL-UNNAMED'
+    ]
+    verbose = true
+}
